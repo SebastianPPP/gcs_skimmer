@@ -1,13 +1,13 @@
-// WebSocket connection setup
+// ─── WebSocket zamiast polling + auto-reconnect ───────────────────────────
 const socket = io({
-    transports: ['websocket', 'polling'],  
+    transports: ['websocket', 'polling'],   // WebSocket first, fallback do polling
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 10000,
 });
 
-// App state management
+// ─── Stan aplikacji ────────────────────────────────────────────────────────
 const State = {
     map: null,
     droneMarkers: {},
@@ -21,7 +21,7 @@ const State = {
     selectedDroneId: null,
 };
 
-// Connection status bar
+// ─── Connection status bar ─────────────────────────────────────────────────
 const ConnBar = {
     el: null, dot: null, label: null,
 
@@ -34,12 +34,12 @@ const ConnBar = {
     set(state) {
         // state: 'connecting' | 'connected' | 'disconnected'
         this.el.className = `conn-bar conn-${state}`;
-        const labels = { connecting: 'Connecting...', connected: 'ONLINE', disconnected: 'DISCONNECTED' };
+        const labels = { connecting: 'ŁĄCZENIE...', connected: 'ONLINE', disconnected: 'BRAK POŁĄCZENIA' };
         this.label.innerText = labels[state] ?? state;
     },
 };
 
-// Toast notifications
+// ─── Toast notifications ───────────────────────────────────────────────────
 const Toast = {
     container: null,
 
@@ -52,6 +52,7 @@ const Toast = {
         t.innerText = message;
         this.container.appendChild(t);
 
+        // Wejście
         requestAnimationFrame(() => t.classList.add('toast-visible'));
 
         setTimeout(() => {
@@ -66,7 +67,7 @@ const Toast = {
     info:    (msg) => Toast.show(msg, 'info'),
 };
 
-// Custom Leaflet icons
+// ─── Ikony ─────────────────────────────────────────────────────────────────
 const getDroneIconHtml = (color) => `
     <div class="drone-body" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;transition:transform 0.1s linear;">
         <svg viewBox="0 0 24 24" fill="${color}" stroke="rgba(0,0,0,0.6)" stroke-width="1"
@@ -93,7 +94,7 @@ const editNodeIcon = L.divIcon({
     iconSize: [10, 10], iconAnchor: [5, 5],
 });
 
-// Initialization
+// ─── Inicjalizacja ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     ConnBar.init();
     Toast.init();
@@ -131,12 +132,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// UI helpers
+// ─── UI helpers ────────────────────────────────────────────────────────────
 function toggleDensityControl(type) {
     document.getElementById('density-control').style.display = (type === 'lawnmower') ? 'block' : 'none';
 }
 
-// Button states for mission control
+// ─── Mission button state machine ──────────────────────────────────────────
 const BtnState = {
     NEW:    { text: 'NOWA MISJA',      bg: 'rgba(0,255,106,0.1)',  border: '#00c44f', color: '#00ff6a' },
     CANCEL: { text: 'ANULUJ',          bg: 'rgba(255,184,0,0.15)', border: '#ffb800', color: '#ffb800' },
@@ -177,7 +178,7 @@ function toggleDrawingMode(enable) {
     }
 }
 
-// Drawing on the map
+// ─── Drawing ───────────────────────────────────────────────────────────────
 function onMapClick(e) {
     if (!State.isDrawingMode) return;
     const marker = L.marker(e.latlng, { draggable: true, icon: editNodeIcon }).addTo(State.drawingLayer);
@@ -196,7 +197,7 @@ function updateDrawingVisuals() {
         : L.polyline(latlngs, { color: '#ffb800', dashArray: '5, 8', weight: 1.5 }).addTo(State.drawingLayer);
 }
 
-// Path generation logic
+// ─── Path generation ───────────────────────────────────────────────────────
 function generatePath() {
     if (State.drawingMarkers.length < 2) { Toast.warn('Min. 2 punkty!'); return; }
 
@@ -215,11 +216,10 @@ function generatePath() {
         let dist = parseFloat(document.getElementById('scan-distance').value);
         if (isNaN(dist) || dist < 5) { dist = 5; document.getElementById('scan-distance').value = 5; }
 
-        // Math for calculating step sizes in lat/lon 
-        // based on desired distance in meters
+        // Poprawny przelicznik dla szerokości i długości geograficznej
         const centerLat   = (bbox[1] + bbox[3]) / 2;
-        const stepLat     = dist / 111132;                          
-        const stepLon     = dist / (111132 * Math.cos(centerLat * Math.PI / 180)); 
+        const stepLat     = dist / 111132;                          // stopnie szerokości
+        const stepLon     = dist / (111132 * Math.cos(centerLat * Math.PI / 180)); // stopnie długości — fix!
 
         if (stepLat <= 0.000001 || stepLon <= 0.000001) return;
 
@@ -246,7 +246,7 @@ function generatePath() {
     State.isDrawingMode = false;
     State.drawingLayer.clearLayers();
     applyBtnState(BtnState.UPLOAD);
-    document.getElementById('mission-info').innerText = `Waypoints: ${State.finalWaypoints.length} PKT.`;
+    document.getElementById('mission-info').innerText = `TRASA: ${State.finalWaypoints.length} PKT.`;
 }
 
 function renderEditableMission() {
@@ -263,7 +263,7 @@ function renderEditableMission() {
     });
 }
 
-// API calls
+// ─── API calls ─────────────────────────────────────────────────────────────
 async function apiFetch(url, options = {}) {
     try {
         const res = await fetch(url, {
@@ -271,22 +271,22 @@ async function apiFetch(url, options = {}) {
             ...options,
         });
         if (res.status === 401) { location.reload(); return null; }
-        if (res.status === 429) { Toast.warn('Too many requests - please slow down.'); return null; }
+        if (res.status === 429) { Toast.warn('Za dużo żądań — zwolnij.'); return null; }
         if (!res.ok) {
             const body = await res.json().catch(() => ({}));
-            Toast.error(`Error ${res.status}: ${body.error ?? 'Error'}`);
+            Toast.error(`Błąd ${res.status}: ${body.error ?? 'Nieznany błąd'}`);
             return null;
         }
         return await res.json();
     } catch (e) {
-        Toast.error('No connection to the server.');
+        Toast.error('Brak połączenia z serwerem.');
         console.error(e);
         return null;
     }
 }
 
 async function uploadMission() {
-    if (!State.selectedDroneId) { Toast.warn('Select a drone!'); return; }
+    if (!State.selectedDroneId) { Toast.warn('Wybierz drona!'); return; }
     const missionId = `m_${Date.now()}`;
     const payload   = {
         drones: {
@@ -300,7 +300,7 @@ async function uploadMission() {
     const res = await apiFetch('/api/mission/upload', { method: 'POST', body: JSON.stringify(payload) });
     if (res) {
         applyBtnState(BtnState.SENT);
-        Toast.success('Mission uploaded!');
+        Toast.success('Misja wysłana!');
         setTimeout(() => applyBtnState(BtnState.UPDATE), 2000);
     }
 }
@@ -309,22 +309,22 @@ async function clearMission() {
     toggleDrawingMode(false);
     State.missionLayer.clearLayers();
     State.finalWaypoints = [];
-    if (State.selectedDroneId && confirm(`STOP mission for ${State.selectedDroneId}?`)) {
+    if (State.selectedDroneId && confirm(`STOP misji dla ${State.selectedDroneId}?`)) {
         const res = await apiFetch('/api/mission/stop', {
             method: 'POST',
             body: JSON.stringify({ drones: [State.selectedDroneId] }),
         });
-        if (res) Toast.info(`Mission stopped for ${State.selectedDroneId}.`);
+        if (res) Toast.info(`Misja zatrzymana dla ${State.selectedDroneId}.`);
     }
 }
 
 async function addDrone(id) {
     const res = await apiFetch('/api/drone/add', { method: 'POST', body: JSON.stringify({ drone_id: id }) });
-    if (res) Toast.success(`Drone ${id} added to tracked.`);
+    if (res) Toast.success(`Dron ${id} dodany do śledzonych.`);
 }
 
 async function deleteDrone(id) {
-    if (!confirm(`Move drone ${id} to detected?`)) return;
+    if (!confirm(`Przenieść drona ${id} do wykrytych?`)) return;
     const res = await apiFetch('/api/drone/delete', { method: 'POST', body: JSON.stringify({ drone_id: id }) });
     if (res && State.selectedDroneId === id) {
         State.selectedDroneId = null;
@@ -332,14 +332,15 @@ async function deleteDrone(id) {
         document.getElementById('drone-panel').classList.add('hidden');
         State.missionLayer.clearLayers();
         State.finalWaypoints = [];
-        Toast.info(`Drone ${id} moved to detected.`);
+        Toast.info(`Dron ${id} przeniesiony do wykrytych.`);
     }
 }
 
-// Map updates based on telemetry
+// ─── Map update ────────────────────────────────────────────────────────────
 function updateMap(drones) {
     const currentIds = new Set(drones.map(d => d.drone_id));
 
+    // Usuń markery dronów których już nie ma
     for (const id in State.droneMarkers) {
         if (!currentIds.has(id)) {
             State.map.removeLayer(State.droneMarkers[id]);
@@ -355,7 +356,7 @@ function updateMap(drones) {
             if (body) body.style.transform = `rotate(${d.yaw}deg)`;
             marker.setOpacity(d.is_tracked ? 1.0 : 0.6);
             if (marker.isPopupOpen()) {
-                marker.setPopupContent(`<b>${d.drone_id}</b><br>Mission: ${d.mission_display || '-'}<br>Role: ${d.server_assigned_role || '-'}<br>Battery: ${d.battery}%`);
+                marker.setPopupContent(`<b>${d.drone_id}</b><br>Misja: ${d.mission_display || '-'}<br>Rola: ${d.server_assigned_role || '-'}<br>Bat: ${d.battery}%`);
             }
         } else {
             const m = L.marker([d.lat, d.lon], { icon: createDroneIcon(d.is_tracked ? '#00ff6a' : '#4a6655') }).addTo(State.map);
@@ -367,7 +368,7 @@ function updateMap(drones) {
     });
 }
 
-// Drone selection and panel updates
+// ─── Drone selection ───────────────────────────────────────────────────────
 function selectDrone(id) {
     State.selectedDroneId = id;
     document.getElementById('gauges-container').classList.remove('hidden');
@@ -384,7 +385,7 @@ function closeDronePanel() {
     State.selectedDroneId = null;
 }
 
-// Sidebar management
+// ─── Sidebar ───────────────────────────────────────────────────────────────
 function updateSidebar(drones) {
     const containers = {
         active:   document.getElementById('active-list'),
@@ -445,10 +446,10 @@ function updateSidebar(drones) {
 
         const btn = el.querySelector('.action-btn');
         if (d.is_tracked) {
-            btn.innerText  = '🗑️'; btn.title = 'Move to detected';
+            btn.innerText  = '🗑️'; btn.title = 'Przenieś do wykrytych';
             btn.className  = 'list-btn btn-delete action-btn';
         } else {
-            btn.innerText  = '➕'; btn.title = 'Add drone';
+            btn.innerText  = '➕'; btn.title = 'Dodaj drona';
             btn.className  = 'list-btn btn-add action-btn';
         }
     });
@@ -470,7 +471,7 @@ function handleEmptyMessage(container) {
     }
 }
 
-// Drone panel updates 
+// ─── Drone panel ───────────────────────────────────────────────────────────
 function updateDronePanel(d) {
     const bat = d.battery ?? null;
     if (bat !== null) {
@@ -503,7 +504,7 @@ function updateDronePanel(d) {
     mBadge.className = active ? 'sensor-badge badge-ok' : 'sensor-badge badge-na';
     mBadge.innerText = active ? 'ACT' : '—';
 
-    // Eventually cam feed
+    // Kamera (MJPEG stream)
     const camUrl      = d.cam_url || null;
     const statusLabel = document.getElementById('cam-status-label');
     const dot         = document.querySelector('.cam-status-dot');
@@ -545,7 +546,7 @@ function updateDronePanel(d) {
     }
 }
 
-// HUD updates for roll, pitch, yaw
+// ─── HUD ───────────────────────────────────────────────────────────────────
 function updateHUD(roll, pitch, yaw) {
     const h   = document.getElementById('horizon-gradient');
     const cp  = Math.max(-60, Math.min(60, pitch));

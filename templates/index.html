@@ -1,184 +1,165 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8" />
-  <title>GCS for skimmers!</title>
-  
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GCS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
-  
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 </head>
 <body>
 
-  <div id="conn-bar" class="conn-bar conn-connecting">
-    <span id="conn-dot" class="conn-dot"></span>
-    <span id="conn-label">ŁĄCZENIE...</span>
-  </div>
-
-  <div id="sidebar">
-    <div class="sidebar-lists">
-      <h3>Aktywne</h3>
-      <div id="active-list"></div>
-
-      <h3>Nieaktywne</h3>
-      <div id="inactive-list"></div>
-
-      <h3>Wykryte</h3>
-      <div id="detected-list"></div>
-    </div>
-
-    <div class="sidebar-control">
-      <div id="mission-info"></div>
-
-      <div class="control-group">
-        <label>TYP MISJI</label>
-        <select id="mission-type-select">
-          <option value="lawnmower">LAWNMOWER // OBSZAR</option>
-          <option value="waypoints">WAYPOINTS // TRASA</option>
-        </select>
-      </div>
-
-      <div id="density-control" style="display:none; margin-top:8px;">
-        <label class="control-group" style="font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:2px; color:#4a6655;">ODSTĘP (M)</label>
-        <input type="number" id="scan-distance" min="5" value="20">
-      </div>
-
-      <div style="margin-top: 10px;">
-        <button id="mission-btn">NOWA MISJA</button>
-        <button id="generate-path-btn">GENERUJ TRASĘ</button>
-        <button id="clear-mission-btn" disabled>USUŃ MISJĘ</button>
-      </div>
-    </div>
-  </div>
-
   <div id="map"></div>
 
-  <div id="toast-container"></div>
-
-  <div id="gauges-container" class="hidden">
-    <div id="attitude-indicator" class="gauge">
-      <div id="horizon-gradient"><div class="horizon-line"></div></div>
-      <div id="crosshair"></div>
-      <div class="hud-text" id="hud-roll-pitch">R:0 P:0</div>
-    </div>
-    <div id="compass" class="gauge">
-      <div class="compass-rose">
-        <span class="compass-label label-n">N</span>
-        <span class="compass-label label-e">E</span>
-        <span class="compass-label label-s">S</span>
-        <span class="compass-label label-w">W</span>
-        <div class="compass-needle" id="compass-needle-el"></div>
+  <!-- TOP BAR -->
+  <header id="topbar">
+    <div class="tb-left">
+      <span class="logo">GCS</span>
+      <div id="conn-pill" class="pill pill-warn">
+        <span class="pill-dot"></span>
+        <span id="conn-label">CONNECTING</span>
       </div>
-      <div class="hud-text" id="hud-yaw" style="bottom: 10px;">HDG:0°</div>
     </div>
-  </div>
+    <div class="tb-right">
+      <button class="icon-btn" id="sidebar-toggle" title="Drony">&#9776;</button>
+    </div>
+  </header>
 
-  <div id="drone-panel" class="hidden">
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="sidebar-closed">
+    <section class="sb-section">
+      <p class="sb-label">AKTYWNE</p>
+      <div id="active-list" class="drone-list"></div>
+    </section>
+    <section class="sb-section">
+      <p class="sb-label">NIEAKTYWNE</p>
+      <div id="inactive-list" class="drone-list"></div>
+    </section>
+    <section class="sb-section">
+      <p class="sb-label">WYKRYTE</p>
+      <div id="detected-list" class="drone-list"></div>
+    </section>
+    <div class="sb-divider"></div>
+    <section class="sb-section">
+      <p class="sb-label">MISJA</p>
+      <div class="field-row">
+        <label class="field-label">TYP</label>
+        <select id="mission-type-select" class="field-select">
+          <option value="lawnmower">Lawnmower</option>
+          <option value="waypoints">Waypoints</option>
+        </select>
+      </div>
+      <div id="density-control" class="field-row" style="display:none">
+        <label class="field-label">ODSTEP</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="scan-distance" min="5" value="20" class="field-input" style="width:64px">
+          <span class="field-unit">m</span>
+        </div>
+      </div>
+      <div id="mission-info" class="mission-info"></div>
+      <div class="btn-stack">
+        <button id="mission-btn" class="btn btn-primary">Nowa misja</button>
+        <button id="generate-path-btn" class="btn btn-ghost">Generuj trase</button>
+        <button id="clear-mission-btn" class="btn btn-ghost" disabled>Usun misje</button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- DRONE PANEL -->
+  <div id="drone-panel" class="panel hidden">
     <div class="panel-header">
       <div>
-        <div class="panel-title">// WYBRANO DRONA</div>
-        <div class="panel-drone-id" id="panel-drone-id">—</div>
+        <p class="panel-sub">WYBRANY DRON</p>
+        <p class="panel-title" id="panel-drone-id">-</p>
       </div>
-      <button class="panel-close" id="panel-close-btn" title="Zamknij">✕</button>
+      <button class="icon-btn" id="panel-close-btn">&times;</button>
     </div>
 
-    <div class="camera-section">
-      <div class="section-label">KAMERA POKŁADOWA</div>
-      <div class="camera-feed" id="camera-feed">
-        <div class="camera-placeholder" id="cam-placeholder">
-          <div class="camera-icon">⬡</div>
-          <p>BRAK SYGNAŁU / NO FEED</p>
+    <div class="hud-row">
+      <div class="hud-gauge" id="attitude-indicator">
+        <div id="horizon-gradient"><div class="horizon-line"></div></div>
+        <div id="crosshair"></div>
+        <span class="hud-label" id="hud-roll-pitch">R:0 P:0</span>
+      </div>
+      <div class="hud-gauge" id="compass">
+        <div class="compass-rose">
+          <span class="cn cn-n">N</span><span class="cn cn-e">E</span>
+          <span class="cn cn-s">S</span><span class="cn cn-w">W</span>
+          <div class="compass-needle" id="compass-needle-el"></div>
         </div>
-        <video id="cam-video" style="width:100%;height:100%;object-fit:cover;display:none;" autoplay muted playsinline></video>
-        <div class="camera-overlay">
-          <div class="cam-corner tl"></div>
-          <div class="cam-corner tr"></div>
-          <div class="cam-corner bl"></div>
-          <div class="cam-corner br"></div>
+        <span class="hud-label" id="hud-yaw">HDG:0</span>
+      </div>
+    </div>
+
+    <div class="sensor-grid">
+      <div class="sensor-card" id="sensor-battery">
+        <span class="sc-name">BAT</span>
+        <span class="sc-value" id="sv-battery">-</span>
+        <span class="sc-unit">%</span>
+        <span class="sc-badge sc-badge-ok" id="sb-battery">OK</span>
+      </div>
+      <div class="sensor-card">
+        <span class="sc-name">ALT</span>
+        <span class="sc-value" id="sv-alt">-</span>
+        <span class="sc-unit">m</span>
+        <span class="sc-badge sc-badge-ok">OK</span>
+      </div>
+      <div class="sensor-card">
+        <span class="sc-name">HDG</span>
+        <span class="sc-value" id="sv-hdg">-</span>
+        <span class="sc-unit">deg</span>
+        <span class="sc-badge sc-badge-ok">OK</span>
+      </div>
+      <div class="sensor-card sc-dim">
+        <span class="sc-name">HDOP</span>
+        <span class="sc-value">-</span>
+        <span class="sc-unit">HDOP</span>
+        <span class="sc-badge sc-badge-na">N/A</span>
+      </div>
+      <div class="sensor-card sc-dim">
+        <span class="sc-name">SPD</span>
+        <span class="sc-value">-</span>
+        <span class="sc-unit">m/s</span>
+        <span class="sc-badge sc-badge-na">N/A</span>
+      </div>
+      <div class="sensor-card sc-dim">
+        <span class="sc-name">RSSI</span>
+        <span class="sc-value">-</span>
+        <span class="sc-unit">dBm</span>
+        <span class="sc-badge sc-badge-na">N/A</span>
+      </div>
+      <div class="sensor-card" id="sensor-mission" style="grid-column:span 2">
+        <span class="sc-name">MISJA / WP</span>
+        <span class="sc-value" id="sv-mission" style="font-size:12px">-</span>
+        <span class="sc-unit" id="sv-role">-</span>
+        <span class="sc-badge sc-badge-na" id="sb-mission">-</span>
+      </div>
+    </div>
+
+    <div class="cam-section">
+      <p class="panel-sub" style="margin-bottom:8px">KAMERA</p>
+      <div class="cam-feed" id="camera-feed">
+        <div class="cam-placeholder" id="cam-placeholder">
+          <span style="font-size:11px;opacity:.5">No feed</span>
+        </div>
+        <video id="cam-video" style="width:100%;height:100%;object-fit:cover;display:none" autoplay muted playsinline></video>
+        <div class="cam-overlay">
           <div class="cam-status">
-            <div class="cam-status-dot"></div>
+            <span class="cam-dot" id="cam-dot"></span>
             <span id="cam-status-label">NO SIGNAL</span>
           </div>
         </div>
       </div>
     </div>
-
-    <div class="sensors-section">
-      <div class="section-label">CZUJNIKI</div>
-      <div class="sensors-grid">
-
-        <div class="sensor-card available" id="sensor-battery">
-          <div class="sensor-badge badge-ok">OK</div>
-          <div class="sensor-name">BATERIA</div>
-          <div class="sensor-value" id="sv-battery">—</div>
-          <div class="sensor-unit">%</div>
-        </div>
-
-        <div class="sensor-card available" id="sensor-alt">
-          <div class="sensor-badge badge-ok">OK</div>
-          <div class="sensor-name">WYSOKOŚĆ</div>
-          <div class="sensor-value" id="sv-alt">—</div>
-          <div class="sensor-unit">m AGL</div>
-        </div>
-
-        <div class="sensor-card available" id="sensor-hdg">
-          <div class="sensor-badge badge-ok">OK</div>
-          <div class="sensor-name">KURS</div>
-          <div class="sensor-value" id="sv-hdg">—</div>
-          <div class="sensor-unit">°</div>
-        </div>
-
-        <div class="sensor-card unavailable" id="sensor-gps">
-          <div class="sensor-badge badge-na">N/A</div>
-          <div class="sensor-name">GPS HDOP</div>
-          <div class="sensor-value">—</div>
-          <div class="sensor-unit">HDOP</div>
-        </div>
-
-        <div class="sensor-card unavailable" id="sensor-spd">
-          <div class="sensor-badge badge-na">N/A</div>
-          <div class="sensor-name">PRĘDKOŚĆ</div>
-          <div class="sensor-value">—</div>
-          <div class="sensor-unit">m/s</div>
-        </div>
-
-        <div class="sensor-card unavailable" id="sensor-temp">
-          <div class="sensor-badge badge-na">N/A</div>
-          <div class="sensor-name">TEMP ESC</div>
-          <div class="sensor-value">—</div>
-          <div class="sensor-unit">°C</div>
-        </div>
-
-        <div class="sensor-card unavailable" id="sensor-rssi">
-          <div class="sensor-badge badge-na">N/A</div>
-          <div class="sensor-name">RSSI</div>
-          <div class="sensor-value">—</div>
-          <div class="sensor-unit">dBm</div>
-        </div>
-
-        <div class="sensor-card unavailable" id="sensor-lidar">
-          <div class="sensor-badge badge-na">N/A</div>
-          <div class="sensor-name">LIDAR</div>
-          <div class="sensor-value">—</div>
-          <div class="sensor-unit">m</div>
-        </div>
-
-        <div class="sensor-card" id="sensor-mission">
-          <div class="sensor-badge badge-na" id="sb-mission">—</div>
-          <div class="sensor-name">MISJA/WP</div>
-          <div class="sensor-value" style="font-size:11px; line-height:1.3;" id="sv-mission">—</div>
-          <div class="sensor-unit" id="sv-role">—</div>
-        </div>
-
-      </div>
-    </div>
   </div>
 
+  <div id="toast-container"></div>
+
   <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-  
 </body>
 </html>
