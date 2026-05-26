@@ -471,7 +471,7 @@ function handleEmptyMessage(container) {
 }
 
 // Drone panel updates 
-    function updateDronePanel(d) {
+function updateDronePanel(d) {
     const bat = d.battery ?? null;
     if (bat !== null) {
         document.getElementById('sv-battery').innerText = bat;

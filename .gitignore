@@ -1,3 +1,4 @@
 app.log
 skimmer
 .env
+.vscode
