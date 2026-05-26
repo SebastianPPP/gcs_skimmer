@@ -533,3 +533,47 @@ html, body {
 
 /* edit nodes */
 .edit-node { background: none; border: none; }
+
+/* ── Drone panel additions ───────────────────────────── */
+.panel-header-left { display: flex; flex-direction: column; gap: 2px; }
+
+.panel-signal-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+}
+
+.signal-indicator {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 6px #4ade80;
+  flex-shrink: 0;
+  animation: signal-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes signal-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.panel-age {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #555;
+  letter-spacing: 1px;
+}
+
+/* sensor-grid 3 cols */
+.sensor-grid {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
+/* sidebar drone-item dot dynamic color */
+.di-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background .4s, box-shadow .4s;
+}

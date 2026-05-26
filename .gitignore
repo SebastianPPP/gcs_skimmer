@@ -2,3 +2,4 @@ app.log
 skimmer
 .env
 .vscode
+test_drone.py

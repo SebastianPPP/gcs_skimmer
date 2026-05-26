@@ -44,7 +44,9 @@
       <p class="sb-label">WYKRYTE</p>
       <div id="detected-list" class="drone-list"></div>
     </section>
+
     <div class="sb-divider"></div>
+
     <section class="sb-section">
       <p class="sb-label">MISJA</p>
       <div class="field-row">
@@ -72,14 +74,24 @@
 
   <!-- DRONE PANEL -->
   <div id="drone-panel" class="panel hidden">
+
+    <!-- header -->
     <div class="panel-header">
-      <div>
+      <div class="panel-header-left">
+        <div class="panel-signal-row">
+          <span class="signal-indicator" id="panel-signal"></span>
+          <span class="panel-age" id="panel-age">—</span>
+        </div>
         <p class="panel-sub">WYBRANY DRON</p>
-        <p class="panel-title" id="panel-drone-id">-</p>
+        <p class="panel-title" id="panel-drone-id">—</p>
       </div>
       <button class="icon-btn" id="panel-close-btn">&times;</button>
     </div>
 
+    <!-- follow button -->
+    <button id="follow-btn" class="btn btn-ghost" style="width:100%;margin-bottom:12px;">&#8857; Sledz drona</button>
+
+    <!-- HUD -->
     <div class="hud-row">
       <div class="hud-gauge" id="attitude-indicator">
         <div id="horizon-gradient"><div class="horizon-line"></div></div>
@@ -96,56 +108,75 @@
       </div>
     </div>
 
+    <!-- sensor grid -->
     <div class="sensor-grid">
+
       <div class="sensor-card" id="sensor-battery">
         <span class="sc-name">BAT</span>
-        <span class="sc-value" id="sv-battery">-</span>
+        <span class="sc-value" id="sv-battery">—</span>
         <span class="sc-unit">%</span>
         <span class="sc-badge sc-badge-ok" id="sb-battery">OK</span>
       </div>
+
       <div class="sensor-card">
         <span class="sc-name">ALT</span>
-        <span class="sc-value" id="sv-alt">-</span>
-        <span class="sc-unit">m</span>
+        <span class="sc-value" id="sv-alt">—</span>
+        <span class="sc-unit">m AGL</span>
         <span class="sc-badge sc-badge-ok">OK</span>
       </div>
+
       <div class="sensor-card">
         <span class="sc-name">HDG</span>
-        <span class="sc-value" id="sv-hdg">-</span>
+        <span class="sc-value" id="sv-hdg">—</span>
         <span class="sc-unit">deg</span>
         <span class="sc-badge sc-badge-ok">OK</span>
       </div>
-      <div class="sensor-card sc-dim">
-        <span class="sc-name">HDOP</span>
-        <span class="sc-value">-</span>
-        <span class="sc-unit">HDOP</span>
-        <span class="sc-badge sc-badge-na">N/A</span>
+
+      <div class="sensor-card">
+        <span class="sc-name">ROLL</span>
+        <span class="sc-value" id="sv-roll">—</span>
+        <span class="sc-unit">deg</span>
+        <span class="sc-badge sc-badge-ok">OK</span>
       </div>
-      <div class="sensor-card sc-dim">
-        <span class="sc-name">SPD</span>
-        <span class="sc-value">-</span>
-        <span class="sc-unit">m/s</span>
-        <span class="sc-badge sc-badge-na">N/A</span>
+
+      <div class="sensor-card">
+        <span class="sc-name">PITCH</span>
+        <span class="sc-value" id="sv-pitch">—</span>
+        <span class="sc-unit">deg</span>
+        <span class="sc-badge sc-badge-ok">OK</span>
       </div>
+
       <div class="sensor-card sc-dim">
         <span class="sc-name">RSSI</span>
-        <span class="sc-value">-</span>
+        <span class="sc-value">—</span>
         <span class="sc-unit">dBm</span>
         <span class="sc-badge sc-badge-na">N/A</span>
       </div>
-      <div class="sensor-card" id="sensor-mission" style="grid-column:span 2">
-        <span class="sc-name">MISJA / WP</span>
-        <span class="sc-value" id="sv-mission" style="font-size:12px">-</span>
-        <span class="sc-unit" id="sv-role">-</span>
-        <span class="sc-badge sc-badge-na" id="sb-mission">-</span>
+
+      <div class="sensor-card" style="grid-column:span 3">
+        <span class="sc-name">POZYCJA GPS</span>
+        <span class="sc-value" style="font-size:11px;letter-spacing:0.5px">
+          <span id="sv-lat">—</span> / <span id="sv-lon">—</span>
+        </span>
+        <span class="sc-unit">lat / lon</span>
+        <span class="sc-badge sc-badge-ok">OK</span>
       </div>
+
+      <div class="sensor-card" style="grid-column:span 3" id="sensor-mission">
+        <span class="sc-name">MISJA / WP</span>
+        <span class="sc-value" id="sv-mission" style="font-size:12px">—</span>
+        <span class="sc-unit" id="sv-role">—</span>
+        <span class="sc-badge sc-badge-na" id="sb-mission">—</span>
+      </div>
+
     </div>
 
+    <!-- camera -->
     <div class="cam-section">
       <p class="panel-sub" style="margin-bottom:8px">KAMERA</p>
       <div class="cam-feed" id="camera-feed">
         <div class="cam-placeholder" id="cam-placeholder">
-          <span style="font-size:11px;opacity:.5">No feed</span>
+          <span style="font-size:11px;opacity:.4">No feed</span>
         </div>
         <video id="cam-video" style="width:100%;height:100%;object-fit:cover;display:none" autoplay muted playsinline></video>
         <div class="cam-overlay">
@@ -156,9 +187,17 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <div id="toast-container"></div>
+
+  <style>
+    @keyframes pulse-ring {
+      0%   { transform: scale(1);   opacity: 0.6; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+  </style>
 
   <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
