@@ -24,18 +24,17 @@ const State = {
 
 // ─── Connection status bar ─────────────────────────────────────────────────
 const ConnBar = {
-    el: null, dot: null, label: null,
+    el: null, label: null,
 
     init() {
-        this.el    = document.getElementById('conn-bar');
-        this.dot   = document.getElementById('conn-dot');
+        this.el    = document.getElementById('conn-pill');
         this.label = document.getElementById('conn-label');
     },
 
     set(state) {
-        // state: 'connecting' | 'connected' | 'disconnected'
-        this.el.className = `conn-bar conn-${state}`;
-        const labels = { connecting: 'ŁĄCZENIE...', connected: 'ONLINE', disconnected: 'BRAK POŁĄCZENIA' };
+        if (!this.el) return;
+        this.el.className = `pill pill-${state === 'connected' ? 'ok' : state === 'disconnected' ? 'err' : 'warn'}`;
+        const labels = { connecting: 'CONNECTING', connected: 'ONLINE', disconnected: 'OFFLINE' };
         this.label.innerText = labels[state] ?? state;
     },
 };
