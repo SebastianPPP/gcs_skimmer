@@ -1,0 +1,39 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gcs_user
+      POSTGRES_PASSWORD: ${DB_PASS:-localdev}
+      POSTGRES_DB: gcs_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"          
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gcs_user -d gcs_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      ADMIN_USER: ${ADMIN_USER}
+      ADMIN_PASS: ${ADMIN_PASS}
+      DRONE_API_KEY: ${DRONE_API_KEY}
+      DATABASE_URL: postgresql://gcs_user:${DB_PASS:-localdev}@db:5432/gcs_db
+      FLASK_DEBUG: ${FLASK_DEBUG:-0}
+    depends_on:
+      db:
+        condition: service_healthy    
+    volumes:
+      - .:/app                        
+
+volumes:
+  postgres_data:
