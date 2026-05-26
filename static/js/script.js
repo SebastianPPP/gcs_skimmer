@@ -1,6 +1,7 @@
-// ─── WebSocket zamiast polling + auto-reconnect ───────────────────────────
+// ─── SocketIO — polling first (wymagane na Render free tier) ──────────────
 const socket = io({
-    transports: ['websocket', 'polling'],   // WebSocket first, fallback do polling
+    transports: ['polling', 'websocket'],
+    upgrade: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
@@ -99,12 +100,17 @@ document.addEventListener('DOMContentLoaded', () => {
     ConnBar.init();
     Toast.init();
 
-    State.map = L.map('map').setView([52.2297, 21.0122], 15);
+    State.map = L.map('map').setView([54.3520, 18.6466], 13); // Gdańsk
     L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
         maxZoom: 19, attribution: '© Stadia Maps © OSM',
     }).addTo(State.map);
     State.missionLayer.addTo(State.map);
     State.drawingLayer.addTo(State.map);
+
+    // sidebar toggle
+    document.getElementById('sidebar-toggle').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('sidebar-open');
+    });
 
     document.getElementById('mission-btn').addEventListener('click', handleMainButton);
     document.getElementById('generate-path-btn').addEventListener('click', generatePath);
