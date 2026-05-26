@@ -18,12 +18,9 @@ from sqlalchemy import text
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+log = logging.getLogger("gcs")
 
 # App configuration
 app = Flask(__name__)
@@ -351,7 +348,7 @@ def internal_error(e):
 def create_tables():
     with app.app_context():
         db.create_all()
-        log.info("Tabele gotowe.")
+        logging.getLogger("gcs").info("Tables created.")
  
 if __name__ == "__main__":
     create_tables()
