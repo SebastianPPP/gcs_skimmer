@@ -15,35 +15,30 @@ from flask_limiter.util import get_remote_address
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import text
 
-# ---------------------------------------------------------------------------
 # Logging
-# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 log = logging.getLogger("gcs")
 
-# ---------------------------------------------------------------------------
 # App + config
-# ---------------------------------------------------------------------------
 app = Flask(__name__)
 
-# --- wymagane env vars (brak → crash przy starcie, nie cichy default) ---
 def _require_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
         raise RuntimeError(
-            f"Brakuje zmiennej środowiskowej: {name}. "
-            "Ustaw ją przed uruchomieniem serwera."
+            f"There is no environment variable: {name}. "
+            "Set it before running the server."
         )
     return value
 
 app.config["SECRET_KEY"]        = _require_env("SECRET_KEY")
 app.config["SQLALCHEMY_DATABASE_URI"] = _require_env("DATABASE_URL")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_pre_ping": True,       # weryfikuj połączenie przed użyciem
-    "pool_recycle": 300,         # odśwież co 5 minut
+    "pool_pre_ping": True,       
+    "pool_recycle": 300,         
     "pool_size": 5,
     "max_overflow": 10,
 }
@@ -54,9 +49,7 @@ ADMIN_USER    = _require_env("ADMIN_USER")
 ADMIN_PASS    = _require_env("ADMIN_PASS")
 DRONE_API_KEY = _require_env("DRONE_API_KEY")
 
-# ---------------------------------------------------------------------------
 # Extensions
-# ---------------------------------------------------------------------------
 db = SQLAlchemy(app)
 
 socketio = SocketIO(
@@ -73,13 +66,11 @@ socketio = SocketIO(
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=[],          # limity tylko tam gdzie chcemy
+    default_limits=[],          
     storage_uri=os.environ.get("REDIS_URL", "memory://"),
 )
 
-# ---------------------------------------------------------------------------
 # Model
-# ---------------------------------------------------------------------------
 class Drone(db.Model):
     __tablename__ = "drones"
 
@@ -101,39 +92,32 @@ class Drone(db.Model):
         return (time.time() - self.last_seen) < 15
 
     def to_snapshot(self) -> dict | None:
-        """Zwraca słownik gotowy do wysłania przez WebSocket."""
         if not self.telemetry:
             return None
 
         snap = dict(self.telemetry)
 
         role = self.assigned_role
-        snap["server_assigned_role"] = "brak" if role == "None" else role
+        snap["server_assigned_role"] = "none" if role == "None" else role
 
         mission = self.current_mission
         target_wp = snap.get("target_wp", 0)
 
         if mission:
             if target_wp == 999:
-                wp_display = "KONIEC"
+                wp_display = "END"
             elif target_wp > 0:
                 wp_display = str(target_wp)
             else:
                 wp_display = "-"
             snap["mission_display"] = f"{mission['id']} / {wp_display}"
         else:
-            snap["mission_display"] = "brak"
+            snap["mission_display"] = "none"
 
         snap["online"]     = self.is_online()
         snap["is_tracked"] = self.is_tracked
         return snap
 
-# ---------------------------------------------------------------------------
-# Emit throttle
-#
-# Zamiast emitować synchronicznie przy każdym POST /api/telemetry,
-# używamy dirty-flag + background loop @ 5 Hz.
-# ---------------------------------------------------------------------------
 _dirty = False
 
 def mark_dirty():
@@ -141,7 +125,6 @@ def mark_dirty():
     _dirty = True
 
 def _emit_loop():
-    """Background task: emituje snapshot co 200 ms jeśli coś się zmieniło."""
     while True:
         socketio.sleep(0.2)
         global _dirty
@@ -152,16 +135,14 @@ def _emit_loop():
             with app.app_context():
                 _push_snapshot()
         except Exception:
-            logging.getLogger("gcs").exception("Błąd w emit loop")
+            logging.getLogger("gcs").exception("Failed to emit snapshot")
 
 def _push_snapshot():
     drones = Drone.query.all()
     snapshots = [s for d in drones if (s := d.to_snapshot()) is not None]
     socketio.emit("telemetry_update", snapshots)
 
-# ---------------------------------------------------------------------------
 # Auth helpers
-# ---------------------------------------------------------------------------
 def _check_admin(username: str, password: str) -> bool:
     return username == ADMIN_USER and password == ADMIN_PASS
 
@@ -171,7 +152,7 @@ def requires_auth(f):
         auth = request.authorization
         if not auth or not _check_admin(auth.username, auth.password):
             return Response(
-                "Błędne dane logowania.\n", 401,
+                "Invalid login credentials.\n", 401,
                 {"WWW-Authenticate": 'Basic realm="GCS Login"'},
             )
         return f(*args, **kwargs)
@@ -186,20 +167,16 @@ def requires_drone_token(f):
         return f(*args, **kwargs)
     return decorated
 
-# ---------------------------------------------------------------------------
 # Routes — UI
-# ---------------------------------------------------------------------------
 @app.route("/")
 @requires_auth
 def index():
     return render_template("index.html")
 
-# ---------------------------------------------------------------------------
 # Routes — Drone API
-# ---------------------------------------------------------------------------
 @app.route("/api/telemetry", methods=["POST"])
 @requires_drone_token
-@limiter.limit("120/minute")        # max 2 req/s na drona przy 1 IP
+@limiter.limit("120/minute")       
 def receive_telemetry():
     data = request.get_json(silent=True)
     if not data:
@@ -241,11 +218,9 @@ def receive_telemetry():
         "mission": drone.current_mission,
     }), 200
 
-# ---------------------------------------------------------------------------
 # Routes — Admin API
-# ---------------------------------------------------------------------------
 @app.route("/api/drones", methods=["GET"])
-@requires_auth                      # było publiczne — teraz wymaga loginu
+@requires_auth
 def get_all_drones():
     drones = Drone.query.all()
     snapshots = [s for d in drones if (s := d.to_snapshot()) is not None]
@@ -332,9 +307,7 @@ def stop_mission():
     mark_dirty()
     return jsonify({"status": "STOPPED"})
 
-# ---------------------------------------------------------------------------
-# Health check (bez auth — dla load balancerów / Docker healthcheck)
-# ---------------------------------------------------------------------------
+# Health check 
 @app.route("/health")
 def health():
     try:
@@ -344,9 +317,7 @@ def health():
         logging.getLogger("gcs").error("Health check failed: %s", e)
         return jsonify({"status": "error", "db": "down"}), 503
 
-# ---------------------------------------------------------------------------
 # Error handlers
-# ---------------------------------------------------------------------------
 @app.errorhandler(429)
 def ratelimit_handler(e):
     return jsonify({"error": "Too Many Requests", "detail": str(e.description)}), 429
@@ -357,13 +328,11 @@ def internal_error(e):
     logging.getLogger("gcs").exception("Internal server error")
     return jsonify({"error": "Internal Server Error"}), 500
 
-# ---------------------------------------------------------------------------
 # Startup
-# ---------------------------------------------------------------------------
 def create_tables():
     with app.app_context():
         db.create_all()
-        logging.getLogger("gcs").info("Tabele gotowe.")
+        logging.getLogger("gcs").info("Tables created.")
 
 if __name__ == "__main__":
     create_tables()

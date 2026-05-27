@@ -33,31 +33,31 @@
   <!-- SIDEBAR -->
   <aside id="sidebar" class="sidebar-closed">
     <section class="sb-section">
-      <p class="sb-label">AKTYWNE</p>
+      <p class="sb-label">ACTIVE</p>
       <div id="active-list" class="drone-list"></div>
     </section>
     <section class="sb-section">
-      <p class="sb-label">NIEAKTYWNE</p>
+      <p class="sb-label">INACTIVE</p>
       <div id="inactive-list" class="drone-list"></div>
     </section>
     <section class="sb-section">
-      <p class="sb-label">WYKRYTE</p>
+      <p class="sb-label">DETECTED</p>
       <div id="detected-list" class="drone-list"></div>
     </section>
 
     <div class="sb-divider"></div>
 
     <section class="sb-section">
-      <p class="sb-label">MISJA</p>
+      <p class="sb-label">MISSION</p>
       <div class="field-row">
-        <label class="field-label">TYP</label>
+        <label class="field-label">TYPE</label>
         <select id="mission-type-select" class="field-select">
           <option value="lawnmower">Lawnmower</option>
           <option value="waypoints">Waypoints</option>
         </select>
       </div>
       <div id="density-control" class="field-row" style="display:none">
-        <label class="field-label">ODSTEP</label>
+        <label class="field-label">Distance</label>
         <div style="display:flex;align-items:center;gap:6px">
           <input type="number" id="scan-distance" min="5" value="20" class="field-input" style="width:64px">
           <span class="field-unit">m</span>
@@ -65,9 +65,9 @@
       </div>
       <div id="mission-info" class="mission-info"></div>
       <div class="btn-stack">
-        <button id="mission-btn" class="btn btn-primary">Nowa misja</button>
-        <button id="generate-path-btn" class="btn btn-ghost">Generuj trase</button>
-        <button id="clear-mission-btn" class="btn btn-ghost" disabled>Usun misje</button>
+        <button id="mission-btn" class="btn btn-primary">New mission</button>
+        <button id="generate-path-btn" class="btn btn-ghost">Generate path</button>
+        <button id="clear-mission-btn" class="btn btn-ghost" disabled>Clear mission</button>
       </div>
     </section>
   </aside>
@@ -82,7 +82,7 @@
           <span class="signal-indicator" id="panel-signal"></span>
           <span class="panel-age" id="panel-age">—</span>
         </div>
-        <p class="panel-sub">WYBRANY DRON</p>
+        <p class="panel-sub">SELECTED DRONE</p>
         <p class="panel-title" id="panel-drone-id">—</p>
       </div>
       <button class="icon-btn" id="panel-close-btn">&times;</button>
@@ -154,7 +154,7 @@
       </div>
 
       <div class="sensor-card" style="grid-column:span 3">
-        <span class="sc-name">POZYCJA GPS</span>
+        <span class="sc-name">GPS POSITION</span>
         <span class="sc-value" style="font-size:11px;letter-spacing:0.5px">
           <span id="sv-lat">—</span> / <span id="sv-lon">—</span>
         </span>
@@ -163,7 +163,7 @@
       </div>
 
       <div class="sensor-card" style="grid-column:span 3" id="sensor-mission">
-        <span class="sc-name">MISJA / WP</span>
+        <span class="sc-name">MISSION / WP</span>
         <span class="sc-value" id="sv-mission" style="font-size:12px">—</span>
         <span class="sc-unit" id="sv-role">—</span>
         <span class="sc-badge sc-badge-na" id="sb-mission">—</span>
@@ -173,7 +173,7 @@
 
     <!-- camera -->
     <div class="cam-section">
-      <p class="panel-sub" style="margin-bottom:8px">KAMERA</p>
+      <p class="panel-sub" style="margin-bottom:8px">CAMERA</p>
       <div class="cam-feed" id="camera-feed">
         <div class="cam-placeholder" id="cam-placeholder">
           <span style="font-size:11px;opacity:.4">No feed</span>

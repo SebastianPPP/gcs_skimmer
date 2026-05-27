@@ -1,4 +1,4 @@
-// ── SocketIO ───────────────────────────────────────────────────────────────
+// SocketIO 
 const socket = io({
     transports: ['polling', 'websocket'],
     upgrade: true,
@@ -8,14 +8,14 @@ const socket = io({
     reconnectionDelayMax: 10000,
 });
 
-// ── Stan aplikacji ─────────────────────────────────────────────────────────
+// App state 
 const State = {
     map: null,
-    droneMarkers: {},       // id -> L.Marker
-    droneData: {},          // id -> ostatnie telemetry
-    droneLastSeen: {},      // id -> timestamp (ms) ostatniego telemetry
-    droneInactiveAt: {},    // id -> timestamp (ms) wejścia w stan offline
-    followMode: false,      // czy kamera śledzi drona
+    droneMarkers: {},       
+    droneData: {},           
+    droneLastSeen: {},        
+    droneInactiveAt: {},    
+    followMode: false,      
     missionLayer: new L.LayerGroup(),
     drawingLayer: new L.LayerGroup(),
     isDrawingMode: false,
@@ -26,7 +26,7 @@ const State = {
     selectedDroneId: null,
 };
 
-// ── Connection pill ────────────────────────────────────────────────────────
+// Connection pill 
 const ConnBar = {
     el: null, label: null,
     init() {
@@ -41,7 +41,7 @@ const ConnBar = {
     },
 };
 
-// ── Toast ──────────────────────────────────────────────────────────────────
+// Toast 
 const Toast = {
     container: null,
     init() { this.container = document.getElementById('toast-container'); },
@@ -62,18 +62,16 @@ const Toast = {
     info:    (m) => Toast.show(m, 'info'),
 };
 
-// ── Kolor sygnału drona ────────────────────────────────────────────────────
-// zielony = ok, pomarańczowy = >10s bez sygnału, czerwony = >30s
 function signalColor(droneId) {
     const last = State.droneLastSeen[droneId];
     if (!last) return '#4ade80';
     const age = (Date.now() - last) / 1000;
-    if (age < 10)  return '#4ade80';   // zielony
-    if (age < 30)  return '#fbbf24';   // pomarańczowy
-    return '#f87171';                  // czerwony
+    if (age < 10)  return '#4ade80';   
+    if (age < 30)  return '#fbbf24';    
+    return '#f87171';                   
 }
 
-// ── Ikony dronów ───────────────────────────────────────────────────────────
+// Icons
 function getDroneIconHtml(color, selected = false) {
     const ring = selected
         ? `<div style="position:absolute;inset:-5px;border-radius:50%;border:2px solid ${color};opacity:0.5;animation:pulse-ring 1.5s ease-out infinite;"></div>`
@@ -117,7 +115,7 @@ const editNodeIcon = L.divIcon({
     iconAnchor: [5, 5],
 });
 
-// ── Inicjalizacja ──────────────────────────────────────────────────────────
+// Initialization
 document.addEventListener('DOMContentLoaded', () => {
     ConnBar.init();
     Toast.init();
@@ -144,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('follow-btn').addEventListener('click', toggleFollow);
     State.map.on('click', onMapClick);
 
-    // zatrzymaj follow gdy użytkownik ręcznie przesuwa mapę
+    
     State.map.on('dragstart', () => {
         if (State.followMode) {
             State.followMode = false;
@@ -152,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // SocketIO
+    
     socket.on('connect',      () => ConnBar.set('connected'));
     socket.on('disconnect',   () => ConnBar.set('disconnected'));
     socket.on('reconnecting', () => ConnBar.set('connecting'));
@@ -177,29 +175,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // tick co sekundę — aktualizuj kolory sygnału + timeout dronów
     setInterval(tickSignals, 1000);
 });
 
-// ── Signal tick — kolor kontrolki + timeout ────────────────────────────────
+// Signal tick 
 function tickSignals() {
     const now = Date.now();
 
     for (const id in State.droneLastSeen) {
         const age = (now - State.droneLastSeen[id]) / 1000;
 
-        // aktualizuj ikonę na mapie
         if (State.droneMarkers[id]) {
             const selected = id === State.selectedDroneId;
             State.droneMarkers[id].setIcon(createDroneIcon(id, selected));
         }
 
-        // >30s bez sygnału → oznacz jako offline, zapisz czas wejścia
         if (age > 30 && !State.droneInactiveAt[id]) {
             State.droneInactiveAt[id] = now;
         }
 
-        // po 60s w stanie offline → usuń drona z mapy i danych
         if (State.droneInactiveAt[id]) {
             const inactiveAge = (now - State.droneInactiveAt[id]) / 1000;
             if (inactiveAge > 60) {
@@ -221,14 +215,14 @@ function removeDrone(id) {
     document.querySelector(`.drone-item[data-drone-id="${id}"]`)?.remove();
 
     if (State.selectedDroneId === id) closeDronePanel();
-    Toast.warn(`Dron ${id} utracony — brak sygnału.`);
+    Toast.warn(`Dron ${id} is lost - no signal.`);
 }
 
-// ── Follow mode ────────────────────────────────────────────────────────────
+// Follow mode  
 function toggleFollow() {
     State.followMode = !State.followMode;
     updateFollowBtn();
-    if (State.followMode) Toast.info('Tryb śledzenia włączony');
+    if (State.followMode) Toast.info('Follow mode ON.');
 }
 
 function updateFollowBtn() {
@@ -237,26 +231,26 @@ function updateFollowBtn() {
     if (State.followMode) {
         btn.classList.add('btn-accent');
         btn.classList.remove('btn-ghost');
-        btn.innerText = '⊙ Śledzenie ON';
+        btn.innerText = '⊙ Following';
     } else {
         btn.classList.remove('btn-accent');
         btn.classList.add('btn-ghost');
-        btn.innerText = '⊙ Śledź drona';
+        btn.innerText = '⊙ Follow drone';
     }
 }
 
-// ── Sidebar mission controls ───────────────────────────────────────────────
+// Sidebar mission controls 
 function toggleDensityControl(type) {
     document.getElementById('density-control').style.display = type === 'lawnmower' ? 'block' : 'none';
 }
 
-// ── Mission button state machine ───────────────────────────────────────────
+// Mission button state machine 
 const BtnState = {
-    NEW:    { text: 'Nowa misja',      cls: 'btn btn-primary' },
-    CANCEL: { text: 'Anuluj',          cls: 'btn btn-ghost'   },
-    UPLOAD: { text: 'Wgraj misję',     cls: 'btn btn-accent'  },
-    UPDATE: { text: 'Aktualizuj misję',cls: 'btn btn-accent'  },
-    SENT:   { text: 'Wysłano ✓',       cls: 'btn btn-primary' },
+    NEW:    { text: 'New mission',      cls: 'btn btn-primary' },
+    CANCEL: { text: 'Cancel',          cls: 'btn btn-ghost'   },
+    UPLOAD: { text: 'Upload mission',     cls: 'btn btn-accent'  },
+    UPDATE: { text: 'Update mission',cls: 'btn btn-accent'  },
+    SENT:   { text: 'Sent ✓',       cls: 'btn btn-primary' },
 };
 
 function applyBtnState(state) {
@@ -279,7 +273,7 @@ function toggleDrawingMode(enable) {
         State.missionLayer.clearLayers();
         State.finalWaypoints = [];
         applyBtnState(BtnState.CANCEL);
-        document.getElementById('mission-info').innerText = 'Kliknij na mapie...';
+        document.getElementById('mission-info').innerText = 'Click on the map...';
         document.getElementById('clear-mission-btn').disabled = false;
         toggleDensityControl(document.getElementById('mission-type-select').value);
     } else {
@@ -289,7 +283,7 @@ function toggleDrawingMode(enable) {
     }
 }
 
-// ── Drawing ────────────────────────────────────────────────────────────────
+// Drawing
 function onMapClick(e) {
     if (!State.isDrawingMode) return;
     const marker = L.marker(e.latlng, { draggable: true, icon: editNodeIcon }).addTo(State.drawingLayer);
@@ -308,9 +302,9 @@ function updateDrawingVisuals() {
         : L.polyline(latlngs, { color: '#fbbf24', dashArray: '5,8', weight: 1.5 }).addTo(State.drawingLayer);
 }
 
-// ── Path generation ────────────────────────────────────────────────────────
+// Path generation 
 function generatePath() {
-    if (State.drawingMarkers.length < 2) { Toast.warn('Min. 2 punkty!'); return; }
+    if (State.drawingMarkers.length < 2) { Toast.warn('Min. 2 points!'); return; }
     const points = State.drawingMarkers.map(m => [m.getLatLng().lat, m.getLatLng().lng]);
     const type   = document.getElementById('mission-type-select').value;
     State.finalWaypoints = [];
@@ -318,8 +312,8 @@ function generatePath() {
     if (type === 'waypoints') {
         State.finalWaypoints = points;
     } else {
-        if (points.length < 3) { Toast.warn('Min. 3 punkty dla lawnmower!'); return; }
-        const turfPoly  = turf.polygon([[...points, points[0]].map(p => [p[1], p[0]])]);
+        if (points.length < 3) { Toast.warn('Min. 3 points for lawnmower!'); return; }
+        const turfPoly  = turf.polygon([[...points, points[0]]].map(p => [p[1], p[0]]));
         const bbox      = turf.bbox(turfPoly);
         let dist = parseFloat(document.getElementById('scan-distance').value);
         if (isNaN(dist) || dist < 5) dist = 5;
@@ -348,7 +342,7 @@ function generatePath() {
     State.isDrawingMode = false;
     State.drawingLayer.clearLayers();
     applyBtnState(BtnState.UPLOAD);
-    document.getElementById('mission-info').innerText = `${State.finalWaypoints.length} pkt.`;
+    document.getElementById('mission-info').innerText = `${State.finalWaypoints.length} points.`;
 }
 
 function renderEditableMission() {
@@ -364,26 +358,26 @@ function renderEditableMission() {
     });
 }
 
-// ── API calls ──────────────────────────────────────────────────────────────
+// API calls 
 async function apiFetch(url, options = {}) {
     try {
         const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
         if (res.status === 401) { location.reload(); return null; }
-        if (res.status === 429) { Toast.warn('Rate limit — zwolnij.'); return null; }
+        if (res.status === 429) { Toast.warn('Rate limit — slow down.'); return null; }
         if (!res.ok) {
             const b = await res.json().catch(() => ({}));
-            Toast.error(`Błąd ${res.status}: ${b.error ?? 'Nieznany'}`);
+            Toast.error(`Error ${res.status}: ${b.error ?? 'Unknown'}`);
             return null;
         }
         return await res.json();
     } catch {
-        Toast.error('Brak połączenia z serwerem.');
+        Toast.error('No connection to the server.');
         return null;
     }
 }
 
 async function uploadMission() {
-    if (!State.selectedDroneId) { Toast.warn('Wybierz drona!'); return; }
+    if (!State.selectedDroneId) { Toast.warn('Select a drone!'); return; }
     const payload = {
         drones: {
             [State.selectedDroneId]: {
@@ -396,7 +390,7 @@ async function uploadMission() {
     const res = await apiFetch('/api/mission/upload', { method: 'POST', body: JSON.stringify(payload) });
     if (res) {
         applyBtnState(BtnState.SENT);
-        Toast.success('Misja wysłana!');
+        Toast.success('Mission uploaded!');
         setTimeout(() => applyBtnState(BtnState.UPDATE), 2000);
     }
 }
@@ -406,33 +400,33 @@ async function clearMission() {
     State.missionLayer.clearLayers();
     State.finalWaypoints = [];
     document.getElementById('clear-mission-btn').disabled = true;
-    if (State.selectedDroneId && confirm(`STOP misji dla ${State.selectedDroneId}?`)) {
+    if (State.selectedDroneId && confirm(`STOP mission for ${State.selectedDroneId}?`)) {
         const res = await apiFetch('/api/mission/stop', {
             method: 'POST',
             body: JSON.stringify({ drones: [State.selectedDroneId] }),
         });
-        if (res) Toast.info(`Misja zatrzymana.`);
+        if (res) Toast.info(`Mission stopped.`);
     }
 }
 
 async function addDrone(id) {
     const res = await apiFetch('/api/drone/add', { method: 'POST', body: JSON.stringify({ drone_id: id }) });
-    if (res) Toast.success(`Dron ${id} dodany.`);
+    if (res) Toast.success(`Drone ${id} added.`);
 }
 
 async function deleteDrone(id) {
-    if (!confirm(`Usunąć drona ${id} ze śledzonych?`)) return;
+    if (!confirm(`Delete drone ${id} from tracked?`)) return;
     const res = await apiFetch('/api/drone/delete', { method: 'POST', body: JSON.stringify({ drone_id: id }) });
     if (res && State.selectedDroneId === id) {
         State.selectedDroneId = null;
         document.getElementById('drone-panel').classList.add('hidden');
         State.missionLayer.clearLayers();
         State.finalWaypoints = [];
-        Toast.info(`Dron ${id} usunięty ze śledzonych.`);
+        Toast.info(`Drone ${id} deleted from tracked.`);
     }
 }
 
-// ── Map update ─────────────────────────────────────────────────────────────
+// Map update 
 function updateMap(drones) {
     const currentIds = new Set(drones.map(d => d.drone_id));
     for (const id in State.droneMarkers) {
@@ -457,7 +451,7 @@ function updateMap(drones) {
     });
 }
 
-// ── Drone selection ────────────────────────────────────────────────────────
+// Drone selection 
 function selectDrone(id) {
     State.selectedDroneId = id;
     State.followMode = true;
@@ -465,7 +459,7 @@ function selectDrone(id) {
     document.getElementById('panel-drone-id').innerText = id;
     updateFollowBtn();
 
-    // natychmiastowe wypełnienie panelu jeśli mamy dane
+    // immediate fill of the panel if we have data
     const d = State.droneData[id];
     if (d) { updateDronePanel(d); updateHUD(d.roll, d.pitch, d.yaw); }
 
@@ -477,7 +471,6 @@ function selectDrone(id) {
         el.classList.toggle('selected', el.dataset.droneId === id);
     });
 
-    // aktualizuj ikony (ring na wybranym)
     for (const mid in State.droneMarkers) {
         State.droneMarkers[mid].setIcon(createDroneIcon(mid, mid === id));
     }
@@ -495,7 +488,7 @@ function closeDronePanel() {
     }
 }
 
-// ── Sidebar ────────────────────────────────────────────────────────────────
+// Sidebar 
 function updateSidebar(drones) {
     const containers = {
         active:   document.getElementById('active-list'),
@@ -540,10 +533,10 @@ function updateSidebar(drones) {
                         &nbsp;·&nbsp;ALT ${d.alt != null ? Math.round(d.alt) + 'm' : '—'}
                         &nbsp;·&nbsp;HDG ${d.yaw != null ? Math.round(d.yaw) + '°' : '—'}
                     </span>
-                    <span class="di-meta">${d.mission_display && d.mission_display !== 'brak' ? '📍 ' + d.mission_display : 'Brak misji'}</span>
+                    <span class="di-meta">${d.mission_display && d.mission_display !== 'brak' ? '📍 ' + d.mission_display : 'No mission'}</span>
                 </div>
             </div>
-            <button class="di-action" title="${d.is_tracked ? 'Usuń ze śledzonych' : 'Dodaj'}" data-id="${d.drone_id}" data-tracked="${d.is_tracked}">
+            <button class="di-action" title="${d.is_tracked ? 'Remove from tracked' : 'Add'}" data-id="${d.drone_id}" data-tracked="${d.is_tracked}">
                 ${d.is_tracked ? '✕' : '+'}
             </button>`;
 
@@ -570,21 +563,21 @@ function handleEmptyMessage(container) {
     }
 }
 
-// ── Drone panel ────────────────────────────────────────────────────────────
+// Drone panel 
 function updateDronePanel(d) {
-    // sygnał / czas od ostatniego update
+    // signal strength 
     const age   = Math.round((Date.now() - (State.droneLastSeen[d.drone_id] || Date.now())) / 1000);
     const color = signalColor(d.drone_id);
     const sigEl = document.getElementById('panel-signal');
     if (sigEl) {
         sigEl.style.background  = color;
         sigEl.style.boxShadow   = `0 0 6px ${color}`;
-        sigEl.title             = `Ostatni sygnał: ${age}s temu`;
+        sigEl.title             = `Last signal: ${age}s ago`;
     }
     const ageEl = document.getElementById('panel-age');
-    if (ageEl) ageEl.innerText = age < 3 ? 'LIVE' : `${age}s temu`;
+    if (ageEl) ageEl.innerText = age < 3 ? 'LIVE' : `${age}s ago`;
 
-    // bateria
+    // battery
     if (d.battery != null) {
         document.getElementById('sv-battery').innerText = d.battery;
         const badge = document.getElementById('sb-battery');
@@ -601,20 +594,20 @@ function updateDronePanel(d) {
     if (d.roll  != null) document.getElementById('sv-roll').innerText = d.roll.toFixed(1);
     if (d.pitch != null) document.getElementById('sv-pitch').innerText = d.pitch.toFixed(1);
 
-    // misja
+    // mission and role
     const mVal  = d.mission_display || '—';
     const rVal  = d.server_assigned_role || '—';
     document.getElementById('sv-mission').innerText = mVal;
     document.getElementById('sv-role').innerText    = rVal.toUpperCase();
     const mBadge = document.getElementById('sb-mission');
     if (mBadge) {
-        const active = mVal !== '—' && mVal !== 'brak';
+        const active = mVal !== '—' && mVal !== 'no mission';
         mBadge.className = `sc-badge ${active ? 'sc-badge-ok' : 'sc-badge-na'}`;
         mBadge.innerText = active ? 'ACT' : '—';
     }
 }
 
-// ── HUD ───────────────────────────────────────────────────────────────────
+// HUD 
 function updateHUD(roll, pitch, yaw) {
     const h  = document.getElementById('horizon-gradient');
     const cp = Math.max(-60, Math.min(60, pitch));
